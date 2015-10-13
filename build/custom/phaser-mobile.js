@@ -7,11 +7,7 @@
 *
 * Phaser - http://phaser.io
 *
-<<<<<<< HEAD
-* v2.4.3 "Coramen" - Built: Wed Sep 09 2015 13:21:20
-=======
-* v2.4.3 "Coramen" - Built: Wed Sep 09 2015 14:45:20
->>>>>>> 9224dc91e5a946dd63384269f9352df3bc4bfca6
+* v2.4.3 "Coramen" - Built: Tue Oct 13 2015 12:52:20
 *
 * By Richard Davey http://www.photonstorm.com @photonstorm
 *
