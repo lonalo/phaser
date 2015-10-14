@@ -376,7 +376,7 @@ module.exports = function (grunt) {
         grunt.task.run('arcadephysics');
         grunt.task.run('nophysics');
         grunt.task.run('minimum');
-
+		grunt.task.run('mobile');
     });
 
     grunt.registerTask('build', 'Compile all Phaser versions just to the dist folder', function() {
@@ -508,14 +508,13 @@ module.exports = function (grunt) {
 
     grunt.registerTask('mobile', 'Phaser for e-games mobile', function() {
 
-      /*grunt.option('exclude', 'gamepad,keyboard,bitmaptext,retrofont,rope,tilesprite,net,arcade,ninja,p2,tilemaps,particles,creature,video');*/
-	  grunt.option('exclude', 'gamepad,keyboard,bitmapdata,graphics,rendertexture,text,bitmaptext,retrofont,net,tweens,sound,debug,arcade,ninja,p2,tilemaps,particles,creature,video,rope,tilesprite');
+      grunt.option('exclude', 'gamepad,keyboard,bitmaptext,retrofont,rope,tilesprite,net,arcade,ninja,p2,tilemaps,particles,creature,video');
       grunt.option('filename', 'phaser-mobile');
       grunt.option('sourcemap', true);
       grunt.option('copy', false);
       grunt.option('copycustom', true);
       grunt.option('uglify', true);
-
+	  grunt.option('split', false);
       grunt.task.run('custom');
 
     });
