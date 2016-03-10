@@ -7,7 +7,7 @@
 *
 * Phaser - http://phaser.io
 *
-* v2.4.6 "Baerlon" - Built: Wed Mar 09 2016 15:58:09
+* v2.4.6 "Baerlon" - Built: Thu Mar 10 2016 10:21:10
 *
 * By Richard Davey http://www.photonstorm.com @photonstorm
 *
@@ -22517,10 +22517,10 @@ Object.defineProperty(Phaser.Input.prototype, "worldY", {
 * The Mouse class is responsible for handling all aspects of mouse interaction with the browser.
 *
 * It captures and processes mouse events that happen on the game canvas object.
-* It also adds a single `mouseup` listener to `window` which is used to capture the mouse being released 
+* It also adds a single `mouseup` listener to `window` which is used to capture the mouse being released
 * when not over the game.
 *
-* You should not normally access this class directly, but instead use a Phaser.Pointer object 
+* You should not normally access this class directly, but instead use a Phaser.Pointer object
 * which normalises all game input for you, including accurate button handling.
 *
 * @class Phaser.Mouse
@@ -22894,7 +22894,8 @@ Phaser.Mouse.prototype = {
 
     /**
     * The internal method that handles the mouse up event from the window.
-    * 
+    *
+
     * @method Phaser.Mouse#onMouseUpGlobal
     * @param {MouseEvent} event - The native event from the browser. This gets stored in Mouse.event.
     */
@@ -22916,7 +22917,8 @@ Phaser.Mouse.prototype = {
 
     /**
     * The internal method that handles the mouse out event from the window.
-    * 
+    *
+
     * @method Phaser.Mouse#onMouseOutGlobal
     * @param {MouseEvent} event - The native event from the browser. This gets stored in Mouse.event.
     */
@@ -22941,7 +22943,8 @@ Phaser.Mouse.prototype = {
         //  the browser opening a context-menu or similar.
         //  On OS X Chrome especially this is bad news, as it blocks
         //  us then getting a mouseup event, so we need to force that through.
-        //  
+        //
+
         //  No matter what, we must cancel the left and right buttons
 
         this.input.mousePointer.stop(event);
@@ -23070,7 +23073,8 @@ Phaser.Mouse.prototype = {
 
     /**
     * Internal pointerLockChange handler.
-    * 
+    *
+
     * @method Phaser.Mouse#pointerLockChange
     * @param {Event} event - The native event from the browser. This gets stored in Mouse.event.
     */
@@ -23131,6 +23135,7 @@ Phaser.Mouse.prototype = {
         }
 
         window.removeEventListener('mouseup', this._onMouseUpGlobal, true);
+        window.removeEventListener('mouseout', this._onMouseOutGlobal, true);
 
         document.removeEventListener('pointerlockchange', this._pointerLockChange, true);
         document.removeEventListener('mozpointerlockchange', this._pointerLockChange, true);
