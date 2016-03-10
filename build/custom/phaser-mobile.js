@@ -7,7 +7,7 @@
 *
 * Phaser - http://phaser.io
 *
-* v2.4.6 "Baerlon" - Built: Thu Mar 10 2016 10:21:10
+* v2.4.6 "Baerlon" - Built: Thu Mar 10 2016 10:54:05
 *
 * By Richard Davey http://www.photonstorm.com @photonstorm
 *
@@ -56833,7 +56833,7 @@ Phaser.SoundManager.prototype = {
     /**
     * Sets the Input Manager touch callback to be SoundManager.unlock.
     * Required for iOS audio device unlocking. Mostly just used internally.
-    * 
+    *
     * @method Phaser.SoundManager#setTouchLock
     */
     setTouchLock: function () {
@@ -56858,7 +56858,7 @@ Phaser.SoundManager.prototype = {
 
     /**
     * Enables the audio, usually after the first touch.
-    * 
+    *
     * @method Phaser.SoundManager#unlock
     * @return {boolean} True if the callback should be removed, otherwise false.
     */
@@ -57303,12 +57303,20 @@ Phaser.SoundManager.prototype = {
 
         this.onSoundDecode.dispose();
 
-        this.context.close();
-
-        if (this.context && window['PhaserGlobal'])
+        if (this.context)
         {
-            //  Store this in the PhaserGlobal window var, if set, to allow for re-use if the game is created again without the page refreshing
-            window['PhaserGlobal'].audioContext = this.context;
+            if (window['PhaserGlobal'])
+            {
+                //  Store this in the PhaserGlobal window var, if set, to allow for re-use if the game is created again without the page refreshing
+                window['PhaserGlobal'].audioContext = this.context;
+            }
+            else
+            {
+                if (this.context.close)
+                {
+                    this.context.close();
+                }
+            }
         }
 
     }
