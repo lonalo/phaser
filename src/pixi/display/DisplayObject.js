@@ -478,8 +478,8 @@ PIXI.DisplayObject.prototype.updateTransform = function(parent)
     this.worldAlpha = this.alpha * p.worldAlpha;
 
     this.worldPosition.set(wt.tx, wt.ty);
-    this.worldScale.set(Math.sqrt(wt.a * wt.a + wt.b * wt.b), Math.sqrt(wt.c * wt.c + wt.d * wt.d));
-    this.worldRotation = Math.atan2(-wt.c, wt.d);
+    this.worldScale.set(wt.a, wt.d);
+    this.worldRotation = Math.atan2(wt.c, wt.d);
 
     // reset the bounds each time this is called!
     this._currentBounds = null;
@@ -547,7 +547,7 @@ PIXI.DisplayObject.prototype.preUpdate = function()
  * @param resolution {Number} The resolution of the texture being generated
  * @param scaleMode {Number} See {{#crossLink "PIXI/scaleModes:property"}}PIXI.scaleModes{{/crossLink}} for possible values
  * @param renderer {CanvasRenderer|WebGLRenderer} The renderer used to generate the texture.
- * @return {Texture} a texture of the graphics object
+ * @return {RenderTexture} a texture of the graphics object
  */
 PIXI.DisplayObject.prototype.generateTexture = function(resolution, scaleMode, renderer)
 {

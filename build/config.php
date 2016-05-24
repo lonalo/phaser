@@ -84,7 +84,6 @@
     <script src="$path/src/pixi/primitives/Graphics.js"></script>
     <script src="$path/src/pixi/primitives/GraphicsData.js"></script>
 
-
 EOL;
 
     if ($modules['rope'])

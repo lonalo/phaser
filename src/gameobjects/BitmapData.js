@@ -1,6 +1,6 @@
 /**
 * @author       Richard Davey <rich@photonstorm.com>
-* @copyright    2015 Photon Storm Ltd.
+* @copyright    2016 Photon Storm Ltd.
 * @license      {@link https://github.com/photonstorm/phaser/blob/master/license.txt|MIT License}
 */
 
@@ -123,10 +123,15 @@ Phaser.BitmapData = function (game, key, width, height) {
     this.texture = new PIXI.Texture(this.baseTexture);
 
     /**
+    * @property {Phaser.FrameData} frameData - The FrameData container this BitmapData uses for rendering.
+    */
+    this.frameData = new Phaser.FrameData();
+
+    /**
     * @property {Phaser.Frame} textureFrame - The Frame this BitmapData uses for rendering.
     * @default
     */
-    this.textureFrame = new Phaser.Frame(0, 0, 0, width, height, 'bitmapData');
+    this.textureFrame = this.frameData.addFrame(new Phaser.Frame(0, 0, 0, width, height, 'bitmapData'));
 
     this.texture.frame = this.textureFrame;
 
@@ -1200,7 +1205,7 @@ Phaser.BitmapData.prototype = {
      * You can use the more friendly methods like `copyRect` and `draw` to avoid having to remember them all.
      *
      * @method Phaser.BitmapData#copy
-     * @param {Phaser.Sprite|Phaser.Image|Phaser.Text|Phaser.BitmapData|Image|HTMLCanvasElement|string} [source] - The source to copy from. If you give a string it will try and find the Image in the Game.Cache first. This is quite expensive so try to provide the image itself.
+     * @param {Phaser.Sprite|Phaser.Image|Phaser.Text|Phaser.BitmapData|Phaser.RenderTexture|Image|HTMLCanvasElement|string} [source] - The source to copy from. If you give a string it will try and find the Image in the Game.Cache first. This is quite expensive so try to provide the image itself.
      * @param {number} [x=0] - The x coordinate representing the top-left of the region to copy from the source image.
      * @param {number} [y=0] - The y coordinate representing the top-left of the region to copy from the source image.
      * @param {number} [width] - The width of the region to copy from the source image. If not specified it will use the full source image width.
@@ -1223,6 +1228,11 @@ Phaser.BitmapData.prototype = {
 
         if (source === undefined || source === null) { source = this; }
 
+        if (source instanceof Phaser.RenderTexture || source instanceof PIXI.RenderTexture)
+        {
+            source = source.getCanvas();
+        }
+
         this._image = source;
 
         if (source instanceof Phaser.Sprite || source instanceof Phaser.Image || source instanceof Phaser.Text || source instanceof PIXI.Sprite)
@@ -1234,7 +1244,15 @@ Phaser.BitmapData.prototype = {
             this._anchor.set(source.anchor.x, source.anchor.y);
             this._rotate = source.rotation;
             this._alpha.current = source.alpha;
-            this._image = source.texture.baseTexture.source;
+
+            if (source.texture instanceof Phaser.RenderTexture || source.texture instanceof PIXI.RenderTexture)
+            {
+                this._image = source.texture.getCanvas();
+            }
+            else
+            {
+                this._image = source.texture.baseTexture.source;
+            }
 
             if (tx === undefined || tx === null) { tx = source.x; }
             if (ty === undefined || ty === null) { ty = source.y; }
@@ -1255,6 +1273,7 @@ Phaser.BitmapData.prototype = {
                 }
 
                 this._image = source.tintedTexture;
+                this._pos.set(0);
             }
         }
         else
@@ -1392,7 +1411,7 @@ Phaser.BitmapData.prototype = {
     * Copies the area defined by the Rectangle parameter from the source image to this BitmapData at the given location.
     *
     * @method Phaser.BitmapData#copyRect
-    * @param {Phaser.Sprite|Phaser.Image|Phaser.Text|Phaser.BitmapData|Image|string} source - The Image to copy from. If you give a string it will try and find the Image in the Game.Cache.
+    * @param {Phaser.Sprite|Phaser.Image|Phaser.Text|Phaser.BitmapData|Phaser.RenderTexture|Image|string} source - The Image to copy from. If you give a string it will try and find the Image in the Game.Cache.
     * @param {Phaser.Rectangle} area - The Rectangle region to copy from the source image.
     * @param {number} x - The destination x coordinate to copy the image to.
     * @param {number} y - The destination y coordinate to copy the image to.
@@ -1413,7 +1432,7 @@ Phaser.BitmapData.prototype = {
     * When drawing it will take into account the Sprites rotation, scale and alpha values.
     *
     * @method Phaser.BitmapData#draw
-    * @param {Phaser.Sprite|Phaser.Image|Phaser.Text} source - The Sprite, Image or Text object to draw onto this BitmapData.
+    * @param {Phaser.Sprite|Phaser.Image|Phaser.Text|Phaser.RenderTexture} source - The Sprite, Image or Text object to draw onto this BitmapData.
     * @param {number} [x=0] - The x coordinate to translate to before drawing. If not specified it will default to `source.x`.
     * @param {number} [y=0] - The y coordinate to translate to before drawing. If not specified it will default to `source.y`.
     * @param {number} [width] - The new width of the Sprite being copied. If not specified it will default to `source.width`.
@@ -1464,16 +1483,21 @@ Phaser.BitmapData.prototype = {
     */
     drawGroupProxy: function (child, blendMode, roundPx) {
 
-        if (child.type === Phaser.EMITTER || child.type === Phaser.BITMAPTEXT)
+        //  Draw base Object
+        if (child.hasOwnProperty('texture'))
         {
+            this.copy(child, null, null, null, null, child.worldPosition.x, child.worldPosition.y, null, null, child.worldRotation, null, null, child.worldScale.x, child.worldScale.y, child.worldAlpha, blendMode, roundPx);
+        }
+
+        if (child.hasOwnProperty('children') && child.children.length > 0)
+        {
+            var c;
+
             for (var i = 0; i < child.children.length; i++)
             {
-                this.copy(child.children[i], null, null, null, null, null, null, null, null, null, null, null, null, null, null, blendMode, roundPx);
+                c = child.children[i];
+                this.copy(c, null, null, null, null, c.worldPosition.x, c.worldPosition.y, null, null, c.worldRotation, null, null, c.worldScale.x, c.worldScale.y, child.worldAlpha, blendMode, roundPx);
             }
-        }
-        else
-        {
-            this.copy(child, null, null, null, null, null, null, null, null, null, null, null, null, null, null, blendMode, roundPx);
         }
 
     },
@@ -1856,6 +1880,8 @@ Phaser.BitmapData.prototype = {
     * @method Phaser.BitmapData#destroy
     */
     destroy: function () {
+
+        this.frameData.destroy();
 
         this.texture.destroy(true);
 

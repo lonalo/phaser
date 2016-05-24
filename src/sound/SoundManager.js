@@ -1,6 +1,6 @@
 /**
 * @author       Richard Davey <rich@photonstorm.com>
-* @copyright    2015 Photon Storm Ltd.
+* @copyright    2016 Photon Storm Ltd.
 * @license      {@link https://github.com/photonstorm/phaser/blob/master/license.txt|MIT License}
 */
 
@@ -16,7 +16,8 @@
 *
 * Mobile warning: There are some mobile devices (certain iPad 2 and iPad Mini revisions) that cannot play 48000 Hz audio.
 * When they try to play the audio becomes extremely distorted and buzzes, eventually crashing the sound system.
-* The solution is to use a lower encoding rate such as 44100 Hz.
+* The solution is to use a lower encoding rate such as 44100 Hz. Sometimes the audio context will
+* be created with a sampleRate of 48000. If this happens and audio distorts you should re-create the context.
 *
 * @class Phaser.SoundManager
 * @constructor
@@ -93,6 +94,15 @@ Phaser.SoundManager = function (game) {
     * @default
     */
     this.channels = 32;
+
+    /**
+    * Set to true to have all sound muted when the Phaser game pauses (such as on loss of focus),
+    * or set to false to keep audio playing, regardless of the game pause state. You may need to
+    * do this should you wish to control audio muting via external DOM buttons or similar.
+    * @property {boolean} muteOnPause 
+    * @default
+    */
+    this.muteOnPause = true;
 
     /**
     * @property {boolean} _codeMuted - Internal mute tracking var.
@@ -830,13 +840,12 @@ Object.defineProperty(Phaser.SoundManager.prototype, "volume", {
                 {
                     if (this._sounds[i].usingAudioTag)
                     {
-                        this._sounds[i].volume = this._sounds[i].volume * value;
+                        this._sounds[i].updateGlobalVolume(value);
                     }
                 }
             }
 
             this.onVolumeChange.dispatch(value);
-
         }
 
     }

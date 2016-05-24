@@ -1,6 +1,6 @@
 /**
 * @author       Richard Davey <rich@photonstorm.com>
-* @copyright    2015 Photon Storm Ltd.
+* @copyright    2016 Photon Storm Ltd.
 * @license      {@link https://github.com/photonstorm/phaser/blob/master/license.txt|MIT License}
 */
 
@@ -947,29 +947,32 @@ Phaser.Physics.Arcade.prototype = {
             return false;
         }
 
+        var resultX = false;
+        var resultY = false;
+
         //  Do we separate on x or y first?
-
-        var result = false;
-
-        //  If we weren't having to carry around so much legacy baggage with us, we could do this properly. But alas ...
         if (this.forceX || Math.abs(this.gravity.y + body1.gravity.y) < Math.abs(this.gravity.x + body1.gravity.x))
         {
-            result = (this.separateX(body1, body2, overlapOnly) || this.separateY(body1, body2, overlapOnly));
+            resultX = this.separateX(body1, body2, overlapOnly);
+
+            //  Are they still intersecting? Let's do the other axis then
+            if (this.intersects(body1, body2))
+            {
+                resultY = this.separateY(body1, body2, overlapOnly);
+            }
         }
         else
         {
-            result = (this.separateY(body1, body2, overlapOnly) || this.separateX(body1, body2, overlapOnly));
+            resultY = this.separateY(body1, body2, overlapOnly);
+
+            //  Are they still intersecting? Let's do the other axis then
+            if (this.intersects(body1, body2))
+            {
+                resultX = this.separateX(body1, body2, overlapOnly);
+            }
         }
 
-        if (overlapOnly)
-        {
-            //  We already know they intersect from the check above, but by this point we know they've now had their overlapX/Y values populated
-            return true;
-        }
-        else
-        {
-            return result;
-        }
+        return (resultX || resultY);
 
     },
 
@@ -977,12 +980,13 @@ Phaser.Physics.Arcade.prototype = {
     * Check for intersection against two bodies.
     *
     * @method Phaser.Physics.Arcade#intersects
-    * @param {Phaser.Physics.Arcade.Body} body1 - The Body object to check.
-    * @param {Phaser.Physics.Arcade.Body} body2 - The Body object to check.
+    * @param {Phaser.Physics.Arcade.Body} body1 - The first Body object to check.
+    * @param {Phaser.Physics.Arcade.Body} body2 - The second Body object to check.
     * @return {boolean} True if they intersect, otherwise false.
     */
     intersects: function (body1, body2) {
 
+        //  Rect vs. Rect
         if (body1.right <= body2.position.x)
         {
             return false;
@@ -1008,131 +1012,200 @@ Phaser.Physics.Arcade.prototype = {
     },
 
     /**
+    * Calculates the horizontal overlap between two Bodies and sets their properties accordingly, including:
+    * `touching.left`, `touching.right` and `overlapX`.
+    *
+    * @method Phaser.Physics.Arcade#getOverlapX
+    * @param {Phaser.Physics.Arcade.Body} body1 - The first Body to separate.
+    * @param {Phaser.Physics.Arcade.Body} body2 - The second Body to separate.
+    * @param {boolean} overlapOnly - Is this an overlap only check, or part of separation?
+    * @return {float} Returns the amount of horizontal overlap between the two bodies.
+    */
+    getOverlapX: function (body1, body2, overlapOnly) {
+
+        var overlap = 0;
+        var maxOverlap = body1.deltaAbsX() + body2.deltaAbsX() + this.OVERLAP_BIAS;
+
+        if (body1.deltaX() === 0 && body2.deltaX() === 0)
+        {
+            //  They overlap but neither of them are moving
+            body1.embedded = true;
+            body2.embedded = true;
+        }
+        else if (body1.deltaX() > body2.deltaX())
+        {
+            //  Body1 is moving right and / or Body2 is moving left
+            overlap = body1.right - body2.x;
+
+            if ((overlap > maxOverlap && !overlapOnly) || body1.checkCollision.right === false || body2.checkCollision.left === false)
+            {
+                overlap = 0;
+            }
+            else
+            {
+                body1.touching.none = false;
+                body1.touching.right = true;
+                body2.touching.none = false;
+                body2.touching.left = true;
+            }
+        }
+        else if (body1.deltaX() < body2.deltaX())
+        {
+            //  Body1 is moving left and/or Body2 is moving right
+            overlap = body1.x - body2.width - body2.x;
+
+            if ((-overlap > maxOverlap && !overlapOnly) || body1.checkCollision.left === false || body2.checkCollision.right === false)
+            {
+                overlap = 0;
+            }
+            else
+            {
+                body1.touching.none = false;
+                body1.touching.left = true;
+                body2.touching.none = false;
+                body2.touching.right = true;
+            }
+        }
+
+        //  Resets the overlapX to zero if there is no overlap, or to the actual pixel value if there is
+        body1.overlapX = overlap;
+        body2.overlapX = overlap;
+
+        return overlap;
+
+    },
+
+    /**
+    * Calculates the vertical overlap between two Bodies and sets their properties accordingly, including:
+    * `touching.up`, `touching.down` and `overlapY`.
+    *
+    * @method Phaser.Physics.Arcade#getOverlapY
+    * @param {Phaser.Physics.Arcade.Body} body1 - The first Body to separate.
+    * @param {Phaser.Physics.Arcade.Body} body2 - The second Body to separate.
+    * @param {boolean} overlapOnly - Is this an overlap only check, or part of separation?
+    * @return {float} Returns the amount of vertical overlap between the two bodies.
+    */
+    getOverlapY: function (body1, body2, overlapOnly) {
+
+        var overlap = 0;
+        var maxOverlap = body1.deltaAbsY() + body2.deltaAbsY() + this.OVERLAP_BIAS;
+
+        if (body1.deltaY() === 0 && body2.deltaY() === 0)
+        {
+            //  They overlap but neither of them are moving
+            body1.embedded = true;
+            body2.embedded = true;
+        }
+        else if (body1.deltaY() > body2.deltaY())
+        {
+            //  Body1 is moving down and/or Body2 is moving up
+            overlap = body1.bottom - body2.y;
+
+            if ((overlap > maxOverlap && !overlapOnly) || body1.checkCollision.down === false || body2.checkCollision.up === false)
+            {
+                overlap = 0;
+            }
+            else
+            {
+                body1.touching.none = false;
+                body1.touching.down = true;
+                body2.touching.none = false;
+                body2.touching.up = true;
+            }
+        }
+        else if (body1.deltaY() < body2.deltaY())
+        {
+            //  Body1 is moving up and/or Body2 is moving down
+            overlap = body1.y - body2.bottom;
+
+            if ((-overlap > maxOverlap && !overlapOnly) || body1.checkCollision.up === false || body2.checkCollision.down === false)
+            {
+                overlap = 0;
+            }
+            else
+            {
+                body1.touching.none = false;
+                body1.touching.up = true;
+                body2.touching.none = false;
+                body2.touching.down = true;
+            }
+        }
+
+        //  Resets the overlapY to zero if there is no overlap, or to the actual pixel value if there is
+        body1.overlapY = overlap;
+        body2.overlapY = overlap;
+
+        return overlap;
+
+    },
+
+    /**
     * The core separation function to separate two physics bodies on the x axis.
     *
-    * @private
     * @method Phaser.Physics.Arcade#separateX
-    * @param {Phaser.Physics.Arcade.Body} body1 - The Body object to separate.
-    * @param {Phaser.Physics.Arcade.Body} body2 - The Body object to separate.
+    * @private
+    * @param {Phaser.Physics.Arcade.Body} body1 - The first Body to separate.
+    * @param {Phaser.Physics.Arcade.Body} body2 - The second Body to separate.
     * @param {boolean} overlapOnly - If true the bodies will only have their overlap data set, no separation or exchange of velocity will take place.
-    * @return {boolean} Returns true if the bodies were separated, otherwise false.
+    * @return {boolean} Returns true if the bodies were separated or overlap, otherwise false.
     */
     separateX: function (body1, body2, overlapOnly) {
 
-        //  Can't separate two immovable bodies
-        if (body1.immovable && body2.immovable)
+        var overlap = this.getOverlapX(body1, body2, overlapOnly);
+
+        //  Can't separate two immovable bodies, or a body with its own custom separation logic
+        if (overlapOnly || overlap === 0 || (body1.immovable && body2.immovable) || body1.customSeparateX || body2.customSeparateX)
         {
-            return false;
+            //  return true if there was some overlap, otherwise false
+            return (overlap !== 0) || (body1.embedded && body2.embedded);
         }
 
-        var overlap = 0;
+        //  Adjust their positions and velocities accordingly (if there was any overlap)
+        var v1 = body1.velocity.x;
+        var v2 = body2.velocity.x;
 
-        //  Check if the hulls actually overlap
-        if (this.intersects(body1, body2))
+        if (!body1.immovable && !body2.immovable)
         {
-            var maxOverlap = body1.deltaAbsX() + body2.deltaAbsX() + this.OVERLAP_BIAS;
+            overlap *= 0.5;
 
-            if (body1.deltaX() === 0 && body2.deltaX() === 0)
+            body1.x -= overlap;
+            body2.x += overlap;
+
+            var nv1 = Math.sqrt((v2 * v2 * body2.mass) / body1.mass) * ((v2 > 0) ? 1 : -1);
+            var nv2 = Math.sqrt((v1 * v1 * body1.mass) / body2.mass) * ((v1 > 0) ? 1 : -1);
+            var avg = (nv1 + nv2) * 0.5;
+
+            nv1 -= avg;
+            nv2 -= avg;
+
+            body1.velocity.x = avg + nv1 * body1.bounce.x;
+            body2.velocity.x = avg + nv2 * body2.bounce.x;
+        }
+        else if (!body1.immovable)
+        {
+            body1.x -= overlap;
+            body1.velocity.x = v2 - v1 * body1.bounce.x;
+
+            //  This is special case code that handles things like vertically moving platforms you can ride
+            if (body2.moves)
             {
-                //  They overlap but neither of them are moving
-                body1.embedded = true;
-                body2.embedded = true;
+                body1.y += (body2.y - body2.prev.y) * body2.friction.y;
             }
-            else if (body1.deltaX() > body2.deltaX())
+        }
+        else
+        {
+            body2.x += overlap;
+            body2.velocity.x = v1 - v2 * body2.bounce.x;
+
+            //  This is special case code that handles things like vertically moving platforms you can ride
+            if (body1.moves)
             {
-                //  Body1 is moving right and/or Body2 is moving left
-                overlap = body1.right - body2.x;
-
-                if ((overlap > maxOverlap) || body1.checkCollision.right === false || body2.checkCollision.left === false)
-                {
-                    overlap = 0;
-                }
-                else
-                {
-                    body1.touching.none = false;
-                    body1.touching.right = true;
-                    body2.touching.none = false;
-                    body2.touching.left = true;
-                }
-            }
-            else if (body1.deltaX() < body2.deltaX())
-            {
-                //  Body1 is moving left and/or Body2 is moving right
-                overlap = body1.x - body2.width - body2.x;
-
-                if ((-overlap > maxOverlap) || body1.checkCollision.left === false || body2.checkCollision.right === false)
-                {
-                    overlap = 0;
-                }
-                else
-                {
-                    body1.touching.none = false;
-                    body1.touching.left = true;
-                    body2.touching.none = false;
-                    body2.touching.right = true;
-                }
-            }
-
-            //  Resets the overlapX to zero if there is no overlap, or to the actual pixel value if there is
-            body1.overlapX = overlap;
-            body2.overlapX = overlap;
-
-            //  Then adjust their positions and velocities accordingly (if there was any overlap)
-            if (overlap !== 0)
-            {
-                if (overlapOnly || body1.customSeparateX || body2.customSeparateX)
-                {
-                    return true;
-                }
-
-                var v1 = body1.velocity.x;
-                var v2 = body2.velocity.x;
-
-                if (!body1.immovable && !body2.immovable)
-                {
-                    overlap *= 0.5;
-
-                    body1.x = body1.x - overlap;
-                    body2.x += overlap;
-
-                    var nv1 = Math.sqrt((v2 * v2 * body2.mass) / body1.mass) * ((v2 > 0) ? 1 : -1);
-                    var nv2 = Math.sqrt((v1 * v1 * body1.mass) / body2.mass) * ((v1 > 0) ? 1 : -1);
-                    var avg = (nv1 + nv2) * 0.5;
-
-                    nv1 -= avg;
-                    nv2 -= avg;
-
-                    body1.velocity.x = avg + nv1 * body1.bounce.x;
-                    body2.velocity.x = avg + nv2 * body2.bounce.x;
-                }
-                else if (!body1.immovable)
-                {
-                    body1.x = body1.x - overlap;
-                    body1.velocity.x = v2 - v1 * body1.bounce.x;
-
-                    //  This is special case code that handles things like vertically moving platforms you can ride
-                    if (body2.moves)
-                    {
-                        body1.y += (body2.y - body2.prev.y) * body2.friction.y;
-                    }
-                }
-                else if (!body2.immovable)
-                {
-                    body2.x += overlap;
-                    body2.velocity.x = v1 - v2 * body2.bounce.x;
-
-                    //  This is special case code that handles things like vertically moving platforms you can ride
-                    if (body1.moves)
-                    {
-                        body2.y += (body1.y - body1.prev.y) * body1.friction.y;
-                    }
-                }
-
-                return true;
+                body2.y += (body1.y - body1.prev.y) * body1.friction.y;
             }
         }
 
-        return false;
+        //  If we got this far then there WAS overlap, and separation is complete, so return true
+        return true;
 
     },
 
@@ -1141,128 +1214,68 @@ Phaser.Physics.Arcade.prototype = {
     *
     * @private
     * @method Phaser.Physics.Arcade#separateY
-    * @param {Phaser.Physics.Arcade.Body} body1 - The Body object to separate.
-    * @param {Phaser.Physics.Arcade.Body} body2 - The Body object to separate.
+    * @param {Phaser.Physics.Arcade.Body} body1 - The first Body to separate.
+    * @param {Phaser.Physics.Arcade.Body} body2 - The second Body to separate.
     * @param {boolean} overlapOnly - If true the bodies will only have their overlap data set, no separation or exchange of velocity will take place.
-    * @return {boolean} Returns true if the bodies were separated, otherwise false.
+    * @return {boolean} Returns true if the bodies were separated or overlap, otherwise false.
     */
     separateY: function (body1, body2, overlapOnly) {
 
-        //  Can't separate two immovable or non-existing bodies
-        if (body1.immovable && body2.immovable)
+        var overlap = this.getOverlapY(body1, body2, overlapOnly);
+
+        //  Can't separate two immovable bodies, or a body with its own custom separation logic
+        if (overlapOnly || overlap === 0 || (body1.immovable && body2.immovable) || body1.customSeparateY || body2.customSeparateY)
         {
-            return false;
+            //  return true if there was some overlap, otherwise false
+            return (overlap !== 0) || (body1.embedded && body2.embedded);
         }
 
-        var overlap = 0;
+        //  Adjust their positions and velocities accordingly (if there was any overlap)
+        var v1 = body1.velocity.y;
+        var v2 = body2.velocity.y;
 
-        //  Check if the hulls actually overlap
-        if (this.intersects(body1, body2))
+        if (!body1.immovable && !body2.immovable)
         {
-            var maxOverlap = body1.deltaAbsY() + body2.deltaAbsY() + this.OVERLAP_BIAS;
+            overlap *= 0.5;
 
-            if (body1.deltaY() === 0 && body2.deltaY() === 0)
+            body1.y -= overlap;
+            body2.y += overlap;
+
+            var nv1 = Math.sqrt((v2 * v2 * body2.mass) / body1.mass) * ((v2 > 0) ? 1 : -1);
+            var nv2 = Math.sqrt((v1 * v1 * body1.mass) / body2.mass) * ((v1 > 0) ? 1 : -1);
+            var avg = (nv1 + nv2) * 0.5;
+
+            nv1 -= avg;
+            nv2 -= avg;
+
+            body1.velocity.y = avg + nv1 * body1.bounce.y;
+            body2.velocity.y = avg + nv2 * body2.bounce.y;
+        }
+        else if (!body1.immovable)
+        {
+            body1.y -= overlap;
+            body1.velocity.y = v2 - v1 * body1.bounce.y;
+
+            //  This is special case code that handles things like horizontal moving platforms you can ride
+            if (body2.moves)
             {
-                //  They overlap but neither of them are moving
-                body1.embedded = true;
-                body2.embedded = true;
+                body1.x += (body2.x - body2.prev.x) * body2.friction.x;
             }
-            else if (body1.deltaY() > body2.deltaY())
+        }
+        else
+        {
+            body2.y += overlap;
+            body2.velocity.y = v1 - v2 * body2.bounce.y;
+
+            //  This is special case code that handles things like horizontal moving platforms you can ride
+            if (body1.moves)
             {
-                //  Body1 is moving down and/or Body2 is moving up
-                overlap = body1.bottom - body2.y;
-
-                if ((overlap > maxOverlap) || body1.checkCollision.down === false || body2.checkCollision.up === false)
-                {
-                    overlap = 0;
-                }
-                else
-                {
-                    body1.touching.none = false;
-                    body1.touching.down = true;
-                    body2.touching.none = false;
-                    body2.touching.up = true;
-                }
+                body2.x += (body1.x - body1.prev.x) * body1.friction.x;
             }
-            else if (body1.deltaY() < body2.deltaY())
-            {
-                //  Body1 is moving up and/or Body2 is moving down
-                overlap = body1.y - body2.bottom;
-
-                if ((-overlap > maxOverlap) || body1.checkCollision.up === false || body2.checkCollision.down === false)
-                {
-                    overlap = 0;
-                }
-                else
-                {
-                    body1.touching.none = false;
-                    body1.touching.up = true;
-                    body2.touching.none = false;
-                    body2.touching.down = true;
-                }
-            }
-
-            //  Resets the overlapY to zero if there is no overlap, or to the actual pixel value if there is
-            body1.overlapY = overlap;
-            body2.overlapY = overlap;
-
-            //  Then adjust their positions and velocities accordingly (if there was any overlap)
-            if (overlap !== 0)
-            {
-                if (overlapOnly || body1.customSeparateY || body2.customSeparateY)
-                {
-                    return true;
-                }
-
-                var v1 = body1.velocity.y;
-                var v2 = body2.velocity.y;
-
-                if (!body1.immovable && !body2.immovable)
-                {
-                    overlap *= 0.5;
-
-                    body1.y = body1.y - overlap;
-                    body2.y += overlap;
-
-                    var nv1 = Math.sqrt((v2 * v2 * body2.mass) / body1.mass) * ((v2 > 0) ? 1 : -1);
-                    var nv2 = Math.sqrt((v1 * v1 * body1.mass) / body2.mass) * ((v1 > 0) ? 1 : -1);
-                    var avg = (nv1 + nv2) * 0.5;
-
-                    nv1 -= avg;
-                    nv2 -= avg;
-
-                    body1.velocity.y = avg + nv1 * body1.bounce.y;
-                    body2.velocity.y = avg + nv2 * body2.bounce.y;
-                }
-                else if (!body1.immovable)
-                {
-                    body1.y = body1.y - overlap;
-                    body1.velocity.y = v2 - v1 * body1.bounce.y;
-
-                    //  This is special case code that handles things like horizontal moving platforms you can ride
-                    if (body2.moves)
-                    {
-                        body1.x += (body2.x - body2.prev.x) * body2.friction.x;
-                    }
-                }
-                else if (!body2.immovable)
-                {
-                    body2.y += overlap;
-                    body2.velocity.y = v1 - v2 * body2.bounce.y;
-
-                    //  This is special case code that handles things like horizontal moving platforms you can ride
-                    if (body1.moves)
-                    {
-                        body2.x += (body1.x - body1.prev.x) * body1.friction.x;
-                    }
-                }
-
-                return true;
-            }
-
         }
 
-        return false;
+        //  If we got this far then there WAS overlap, and separation is complete, so return true
+        return true;
 
     },
 
@@ -1588,15 +1601,22 @@ Phaser.Physics.Arcade.prototype = {
     /**
     * Find the distance between two display objects (like Sprites).
     *
+    * The optional `world` argument allows you to return the result based on the Game Objects `world` property,
+    * instead of its `x` and `y` values. This is useful of the object has been nested inside an offset Group,
+    * or parent Game Object.
+    *
     * @method Phaser.Physics.Arcade#distanceBetween
     * @param {any} source - The Display Object to test from.
     * @param {any} target - The Display Object to test to.
+    * @param {boolean} [world=false] - Calculate the distance using World coordinates (true), or Object coordinates (false, the default)
     * @return {number} The distance between the source and target objects.
     */
-    distanceBetween: function (source, target) {
+    distanceBetween: function (source, target, world) {
 
-        var dx = source.x - target.x;
-        var dy = source.y - target.y;
+        if (world === undefined) { world = false; }
+
+        var dx = (world) ? source.world.x - target.world.x : source.x - target.x;
+        var dy = (world) ? source.world.y - target.world.y : source.y - target.y;
 
         return Math.sqrt(dx * dx + dy * dy);
 
@@ -1607,16 +1627,23 @@ Phaser.Physics.Arcade.prototype = {
     * The calculation is made from the display objects x/y coordinate. This may be the top-left if its anchor hasn't been changed.
     * If you need to calculate from the center of a display object instead use the method distanceBetweenCenters()
     *
+    * The optional `world` argument allows you to return the result based on the Game Objects `world` property,
+    * instead of its `x` and `y` values. This is useful of the object has been nested inside an offset Group,
+    * or parent Game Object.
+    *
     * @method Phaser.Physics.Arcade#distanceToXY
     * @param {any} displayObject - The Display Object to test from.
     * @param {number} x - The x coordinate to move towards.
     * @param {number} y - The y coordinate to move towards.
+    * @param {boolean} [world=false] - Calculate the distance using World coordinates (true), or Object coordinates (false, the default)
     * @return {number} The distance between the object and the x/y coordinates.
     */
-    distanceToXY: function (displayObject, x, y) {
+    distanceToXY: function (displayObject, x, y, world) {
 
-        var dx = displayObject.x - x;
-        var dy = displayObject.y - y;
+        if (world === undefined) { world = false; }
+
+        var dx = (world) ? displayObject.world.x - x : displayObject.x - x;
+        var dy = (world) ? displayObject.world.y - y : displayObject.y - y;
 
         return Math.sqrt(dx * dx + dy * dy);
 
@@ -1626,19 +1653,24 @@ Phaser.Physics.Arcade.prototype = {
     * Find the distance between a display object (like a Sprite) and a Pointer. If no Pointer is given the Input.activePointer is used.
     * The calculation is made from the display objects x/y coordinate. This may be the top-left if its anchor hasn't been changed.
     * If you need to calculate from the center of a display object instead use the method distanceBetweenCenters()
-    * The distance to the Pointer is returned in screen space, not world space.
+    *
+    * The optional `world` argument allows you to return the result based on the Game Objects `world` property,
+    * instead of its `x` and `y` values. This is useful of the object has been nested inside an offset Group,
+    * or parent Game Object.
     *
     * @method Phaser.Physics.Arcade#distanceToPointer
     * @param {any} displayObject - The Display Object to test from.
     * @param {Phaser.Pointer} [pointer] - The Phaser.Pointer to test to. If none is given then Input.activePointer is used.
+    * @param {boolean} [world=false] - Calculate the distance using World coordinates (true), or Object coordinates (false, the default)
     * @return {number} The distance between the object and the Pointer.
     */
-    distanceToPointer: function (displayObject, pointer) {
+    distanceToPointer: function (displayObject, pointer, world) {
 
-        pointer = pointer || this.game.input.activePointer;
+        if (pointer === undefined) { pointer = this.game.input.activePointer; }
+        if (world === undefined) { world = false; }
 
-        var dx = displayObject.x - pointer.worldX;
-        var dy = displayObject.y - pointer.worldY;
+        var dx = (world) ? displayObject.world.x - pointer.worldX : displayObject.x - pointer.worldX;
+        var dy = (world) ? displayObject.world.y - pointer.worldY : displayObject.y - pointer.worldY;
 
         return Math.sqrt(dx * dx + dy * dy);
 
@@ -1647,54 +1679,86 @@ Phaser.Physics.Arcade.prototype = {
     /**
     * Find the angle in radians between two display objects (like Sprites).
     *
+    * The optional `world` argument allows you to return the result based on the Game Objects `world` property,
+    * instead of its `x` and `y` values. This is useful of the object has been nested inside an offset Group,
+    * or parent Game Object.
+    *
     * @method Phaser.Physics.Arcade#angleBetween
     * @param {any} source - The Display Object to test from.
     * @param {any} target - The Display Object to test to.
+    * @param {boolean} [world=false] - Calculate the angle using World coordinates (true), or Object coordinates (false, the default)
     * @return {number} The angle in radians between the source and target display objects.
     */
-    angleBetween: function (source, target) {
+    angleBetween: function (source, target, world) {
 
-        var dx = target.x - source.x;
-        var dy = target.y - source.y;
+        if (world === undefined) { world = false; }
 
-        return Math.atan2(dy, dx);
+        if (world)
+        {
+            return Math.atan2(target.world.y - source.world.y, target.world.x - source.world.x);
+        }
+        else
+        {
+            return Math.atan2(target.y - source.y, target.x - source.x);
+        }
 
     },
 
     /**
     * Find the angle in radians between a display object (like a Sprite) and the given x/y coordinate.
     *
+    * The optional `world` argument allows you to return the result based on the Game Objects `world` property,
+    * instead of its `x` and `y` values. This is useful of the object has been nested inside an offset Group,
+    * or parent Game Object.
+    *
     * @method Phaser.Physics.Arcade#angleToXY
     * @param {any} displayObject - The Display Object to test from.
     * @param {number} x - The x coordinate to get the angle to.
     * @param {number} y - The y coordinate to get the angle to.
+    * @param {boolean} [world=false] - Calculate the angle using World coordinates (true), or Object coordinates (false, the default)
     * @return {number} The angle in radians between displayObject.x/y to Pointer.x/y
     */
-    angleToXY: function (displayObject, x, y) {
+    angleToXY: function (displayObject, x, y, world) {
 
-        var dx = x - displayObject.x;
-        var dy = y - displayObject.y;
+        if (world === undefined) { world = false; }
 
-        return Math.atan2(dy, dx);
+        if (world)
+        {
+            return Math.atan2(y - displayObject.world.y, x - displayObject.world.x);
+        }
+        else
+        {
+            return Math.atan2(y - displayObject.y, x - displayObject.x);
+        }
 
     },
 
     /**
     * Find the angle in radians between a display object (like a Sprite) and a Pointer, taking their x/y and center into account.
     *
+    * The optional `world` argument allows you to return the result based on the Game Objects `world` property,
+    * instead of its `x` and `y` values. This is useful of the object has been nested inside an offset Group,
+    * or parent Game Object.
+    *
     * @method Phaser.Physics.Arcade#angleToPointer
     * @param {any} displayObject - The Display Object to test from.
     * @param {Phaser.Pointer} [pointer] - The Phaser.Pointer to test to. If none is given then Input.activePointer is used.
+    * @param {boolean} [world=false] - Calculate the angle using World coordinates (true), or Object coordinates (false, the default)
     * @return {number} The angle in radians between displayObject.x/y to Pointer.x/y
     */
-    angleToPointer: function (displayObject, pointer) {
+    angleToPointer: function (displayObject, pointer, world) {
 
-        pointer = pointer || this.game.input.activePointer;
+        if (pointer === undefined) { pointer = this.game.input.activePointer; }
+        if (world === undefined) { world = false; }
 
-        var dx = pointer.worldX - displayObject.x;
-        var dy = pointer.worldY - displayObject.y;
-
-        return Math.atan2(dy, dx);
+        if (world)
+        {
+            return Math.atan2(pointer.worldY - displayObject.world.y, pointer.worldX - displayObject.world.x);
+        }
+        else
+        {
+            return Math.atan2(pointer.worldY - displayObject.y, pointer.worldX - displayObject.x);
+        }
 
     },
 
@@ -1709,12 +1773,7 @@ Phaser.Physics.Arcade.prototype = {
     */
     worldAngleToPointer: function (displayObject, pointer) {
 
-        pointer = pointer || this.game.input.activePointer;
-
-        var dx = pointer.worldX - displayObject.world.x;
-        var dy = pointer.worldY - displayObject.world.y;
-
-        return Math.atan2(dy, dx);
+        return this.angleToPointer(displayObject, pointer, true);
 
     }
 
